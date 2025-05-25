@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>Prognoza liczby aktywnych samolotów</title>
+<style>
+body { font-family: Arial, sans-serif; margin: 40px; }
+label { display: block; margin-top: 10px; }
+input[type=range] { width: 300px; }
+.result { margin-top: 20px; font-weight: bold; }
+pre { background:#f0f0f0; padding:10px; }
+</style>
+</head>
+<body>
+<h1>Prognoza liczby aktywnych samolotów</h1>
+<form id="form">
+<label><input type="checkbox" id="remont"> Czy trwa remont?</label>
+<label>Data: <input type="date" id="date"></label>
+<p id="seasonal_formula">seasonal_angle = cos(2π × (d - 172) / 365) = </p>
+<label><input type="checkbox" id="weekend"> Weekend?</label>
+<label>precipitation (mm): <input type="range" id="precipitation" min="0" max="20" step="0.1" value="0">
+<span id="precipitation_val">0</span></label>
+<label>temp_min (°C): <input type="range" id="temp_min" min="-10" max="25" step="0.5" value="0">
+<span id="temp_min_val">0</span></label>
+<label>temp_max (°C): <input type="range" id="temp_max" min="-5" max="35" step="0.5" value="0">
+<span id="temp_max_val">0</span></label>
+<label>windspeed_max (km/h): <input type="range" id="windspeed_max" min="0" max="40" step="1" value="0">
+<span id="windspeed_max_val">0</span></label>
+<label>windgusts_max (km/h): <input type="range" id="windgusts_max" min="0" max="70" step="1" value="0">
+<span id="windgusts_max_val">0</span></label>
+<label>weather_group:
+<select id="weather_group">
+<option value="0">brak opadów</option>
+<option value="-0.58231">lekka mżawka</option>
+<option value="-1.81683">silne opady</option>
+<option value="-3.59566">śnieg</option>
+</select>
+</label>
+</form>
+<div class="result" id="result"></div>
+<pre id="details"></pre>
+<script>
+const coeffs = {
+  intercept: 9.24346,
+  remont: -7.09069,
+  seasonal_angle: 2.70315,
+  weekend: -1.06466,
+  precipitation: -0.12128,
+  temp_min: -0.53859,
+  temp_max: 0.39187,
+  windspeed_max: -0.09582,
+  windgusts_max: 0.03930
+};
+function updateValue(id) {
+  const el = document.getElementById(id);
+  document.getElementById(id + '_val').textContent = el.value;
+}
+document.querySelectorAll('input, select').forEach(el => {
+  el.addEventListener('input', () => {
+    if (el.type === 'range') updateValue(el.id);
+    calculate();
+  });
+});
+function dayOfYear(date) {
+  const start = new Date(date.getFullYear(), 0, 0);
+  return Math.floor((date - start) / 86400000);
+}
+
+function calculate() {
+  const dateStr = document.getElementById('date').value;
+  let d = 0;
+  let sa = 0;
+  if (dateStr) {
+    const dt = new Date(dateStr);
+    d = dayOfYear(dt);
+    sa = Math.cos(2 * Math.PI * (d - 172) / 365);
+  }
+  document.getElementById('seasonal_formula').textContent =
+    `seasonal_angle = cos(2π × (${d} - 172) / 365) = ${sa.toFixed(2)}`;
+
+  const lines = [`intercept: ${coeffs.intercept.toFixed(2)}`];
+  let sum = coeffs.intercept;
+
+  const add = (label, val, coeff) => {
+    const c = val * coeff;
+    lines.push(`${label} × ${coeff.toFixed(2)} = ${c.toFixed(2)}`);
+    sum += c;
+  };
+
+  add('remontTRUE', document.getElementById('remont').checked ? 1 : 0, coeffs.remont);
+  add('seasonal_angle', sa, coeffs.seasonal_angle);
+  add('weekendTRUE', document.getElementById('weekend').checked ? 1 : 0, coeffs.weekend);
+  const precipitation = parseFloat(document.getElementById('precipitation').value);
+  add('precipitation', precipitation, coeffs.precipitation);
+  const temp_min = parseFloat(document.getElementById('temp_min').value);
+  add('temp_min', temp_min, coeffs.temp_min);
+  const temp_max = parseFloat(document.getElementById('temp_max').value);
+  add('temp_max', temp_max, coeffs.temp_max);
+  const windspeed_max = parseFloat(document.getElementById('windspeed_max').value);
+  add('windspeed_max', windspeed_max, coeffs.windspeed_max);
+  const windgusts_max = parseFloat(document.getElementById('windgusts_max').value);
+  add('windgusts_max', windgusts_max, coeffs.windgusts_max);
+  const weather_group = parseFloat(document.getElementById('weather_group').value);
+  lines.push(`weather_group = ${weather_group.toFixed(2)}`);
+  sum += weather_group;
+
+  lines.push(`SUMA = ${sum.toFixed(2)}`);
+
+  document.getElementById('result').textContent =
+    'Przy zadanych warunkach oczekiwana liczba aktywnych samolotów wynosi: ' +
+    sum.toFixed(2);
+  document.getElementById('details').textContent = lines.join('\n');
+}
+updateValue('precipitation');
+updateValue('temp_min');
+updateValue('temp_max');
+updateValue('windspeed_max');
+updateValue('windgusts_max');
+calculate();
+</script>
+</body>
+</html>
