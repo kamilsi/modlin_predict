@@ -2,22 +2,81 @@
 <html lang="pl">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Prognoza liczby aktywnych samolotów</title>
 <style>
-body { font-family: Arial, sans-serif; margin: 40px; }
-label { display: block; margin-top: 10px; }
-input[type=range] { width: 300px; }
-.result { margin-top: 20px; font-weight: bold; }
-pre { background:#f0f0f0; padding:10px; }
+body {
+    font-family: system-ui, sans-serif;
+    margin: 0;
+    padding: 20px;
+    background: #f5f5f5;
+}
+
+.container {
+    max-width: 900px;
+    margin: 0 auto;
+}
+
+.panel {
+    background: #fff;
+    padding: 20px;
+    border-radius: 8px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    margin-bottom: 20px;
+}
+
+label {
+    display: flex;
+    align-items: center;
+    margin-top: 10px;
+    gap: 10px;
+}
+
+input[type=range] {
+    flex: 1 1 auto;
+    width: 100%;
+}
+
+.result {
+    margin-top: 20px;
+    font-weight: bold;
+    font-size: 1.2em;
+}
+
+pre {
+    background: #f0f0f0;
+    padding: 10px;
+    overflow-x: auto;
+}
+
+.layout {
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+@media (min-width: 700px) {
+    .layout {
+        flex-direction: row;
+    }
+    form {
+        flex: 1;
+    }
+    #details {
+        flex: 1;
+    }
+}
 </style>
 </head>
 <body>
+<div class="container">
 <h1>Prognoza liczby aktywnych samolotów</h1>
-<form id="form">
+<div class="layout">
+<form id="form" class="panel">
 <label><input type="checkbox" id="remont"> Czy trwa remont?</label>
 <label>Data: <input type="date" id="date"></label>
 <p id="seasonal_formula">seasonal_angle = cos(2π × (d - 172) / 365) = </p>
-<label><input type="checkbox" id="weekend"> Weekend?</label>
+<p id="weekend_info"></p>
 <label>precipitation (mm): <input type="range" id="precipitation" min="0" max="20" step="0.1" value="0">
 <span id="precipitation_val">0</span></label>
 <label>temp_min (°C): <input type="range" id="temp_min" min="-10" max="25" step="0.5" value="0">
@@ -37,8 +96,12 @@ pre { background:#f0f0f0; padding:10px; }
 </select>
 </label>
 </form>
+<div class="panel">
 <div class="result" id="result"></div>
 <pre id="details"></pre>
+</div>
+</div>
+</div>
 <script>
 const coeffs = {
   intercept: 9.24346,
@@ -70,13 +133,17 @@ function calculate() {
   const dateStr = document.getElementById('date').value;
   let d = 0;
   let sa = 0;
+  let weekend = 0;
   if (dateStr) {
     const dt = new Date(dateStr);
     d = dayOfYear(dt);
     sa = Math.cos(2 * Math.PI * (d - 172) / 365);
+    weekend = dt.getDay() === 0 || dt.getDay() === 6 ? 1 : 0;
   }
   document.getElementById('seasonal_formula').textContent =
     `seasonal_angle = cos(2π × (${d} - 172) / 365) = ${sa.toFixed(2)}`;
+  document.getElementById('weekend_info').textContent =
+    'Weekend: ' + (weekend ? 'tak' : 'nie');
 
   const lines = [`intercept: ${coeffs.intercept.toFixed(2)}`];
   let sum = coeffs.intercept;
@@ -89,7 +156,7 @@ function calculate() {
 
   add('remontTRUE', document.getElementById('remont').checked ? 1 : 0, coeffs.remont);
   add('seasonal_angle', sa, coeffs.seasonal_angle);
-  add('weekendTRUE', document.getElementById('weekend').checked ? 1 : 0, coeffs.weekend);
+  add('weekendTRUE', weekend, coeffs.weekend);
   const precipitation = parseFloat(document.getElementById('precipitation').value);
   add('precipitation', precipitation, coeffs.precipitation);
   const temp_min = parseFloat(document.getElementById('temp_min').value);
