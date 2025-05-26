@@ -114,13 +114,59 @@ const coeffs = {
   windspeed_max: -0.09582,
   windgusts_max: 0.03930
 };
+let forecast = null;
 function updateValue(id) {
   const el = document.getElementById(id);
   document.getElementById(id + '_val').textContent = el.value;
 }
+
+function weatherCodeToGroup(code) {
+  if (code >= 0 && code <= 3) return '0';
+  if (code >= 51 && code <= 55) return '-0.58231';
+  if (code >= 61 && code <= 67) return '-1.81683';
+  if ((code >= 71 && code <= 77) || (code >= 85 && code <= 86)) return '-3.59566';
+  return null;
+}
+
+function applyForecastForDate(dateStr) {
+  if (!forecast || !dateStr) return;
+  const idx = forecast.time.indexOf(dateStr);
+  if (idx === -1) return;
+  const map = {
+    temp_max: forecast.temperature_2m_max[idx],
+    temp_min: forecast.temperature_2m_min[idx],
+    precipitation: forecast.precipitation_sum[idx],
+    windspeed_max: forecast.windspeed_10m_max[idx],
+    windgusts_max: forecast.windgusts_10m_max[idx]
+  };
+  for (const [id, val] of Object.entries(map)) {
+    const el = document.getElementById(id);
+    if (el) {
+      el.value = val;
+      updateValue(id);
+    }
+  }
+  const group = weatherCodeToGroup(forecast.weathercode[idx]);
+  if (group !== null) {
+    document.getElementById('weather_group').value = group;
+  }
+  calculate();
+}
+
+async function fetchForecast() {
+  try {
+    const res = await fetch('https://api.open-meteo.com/v1/forecast?latitude=52.44452&longitude=20.657745&daily=temperature_2m_max,temperature_2m_min,precipitation_sum,windspeed_10m_max,windgusts_10m_max,weathercode&timezone=Europe%2FWarsaw');
+    const data = await res.json();
+    forecast = data.daily;
+    applyForecastForDate(document.getElementById('date').value);
+  } catch (e) {
+    console.error('Weather fetch failed', e);
+  }
+}
 document.querySelectorAll('input, select').forEach(el => {
   el.addEventListener('input', () => {
     if (el.type === 'range') updateValue(el.id);
+    if (el.id === 'date') applyForecastForDate(el.value);
     calculate();
   });
 });
@@ -183,6 +229,9 @@ updateValue('temp_min');
 updateValue('temp_max');
 updateValue('windspeed_max');
 updateValue('windgusts_max');
+const today = new Date().toISOString().split('T')[0];
+document.getElementById('date').value = today;
+fetchForecast();
 calculate();
 </script>
 </body>
